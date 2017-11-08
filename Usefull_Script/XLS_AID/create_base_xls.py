@@ -42,13 +42,13 @@ def get_command_output():
 
         nname = node_name.rstrip('\n')
         cmd_telnet_node = 'telnet ' + nname
-        nname_time = nname + '-' + my_time
-        fout = open(BASE_DIR + nname_time + '.txt', 'w')
+        file_time = nname + '-' + my_time + '.txt'
+        fout = open(BASE_DIR + file_time + '.txt', 'w')
         lower_string_to_expect = nname + '#'
 
         string_to_expect = str.upper(lower_string_to_expect)
 
-        child = pexpect.spawn(cmd_telnet_bridge)
+        child = pexpect.spawnu(cmd_telnet_bridge)
 
         child.expect('login: ')
         child.sendline(MyUsername)
