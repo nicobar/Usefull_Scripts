@@ -5,16 +5,8 @@
 
 import pexpect
 import time
-#import string
-# from os import listdir
-# from os.path import isfile, join
-#import tempfile
-
 from openpyxl import load_workbook
 from openpyxl.workbook import Workbook
-
-#from ciscoconfparse import CiscoConfParse
-#from xlwt import Workbook
 
 
 #################################################
@@ -74,7 +66,7 @@ def get_command_output(node_name, cmd):
 
 
 def from_range_to_list(range_str):
-
+    ''' tansform '1-3' in [1,2,3] '''
     l = []
 
     h_l = range_str.split('-')
@@ -116,9 +108,6 @@ def manage_OSW2OSW_allowed_list(ws, file_name):
 
     for elem, myrow in zip(lst, range(1, max_row)):
         ws.cell(row=myrow, column=mycol, value=int(elem))
-#     print (lst)
-#     for i in lst:
-#         print (i)
 
 
 def manage_simple(ws, node, sheet, file):
@@ -219,7 +208,7 @@ file_list = [
     'BOOSW016-9112017_show_standby_brief.txt',
     'BOOSW016-9112017_show_vlan_brief_|_i_[1-9].txt',
     'BOOSW016-9112017_show_vrrp_brief.txt',
-    'OOSW016-9112017_show_interfaces_trunk_|_begin_Vlans_allowed_on_trunk.txt', ]
+    'BOSW016-9112017_show_interfaces_trunk_|_begin_Vlans_allowed_on_trunk.txt', ]
 
 my_time = time_string()
 
