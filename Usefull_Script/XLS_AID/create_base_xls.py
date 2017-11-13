@@ -3,6 +3,7 @@
 ################# IMPORTS #####################
 ###############################################
 
+import os
 import pexpect
 import time
 from openpyxl import load_workbook
@@ -27,11 +28,11 @@ def get_command_output(node_name, cmd):
 
     cmd_telnet_bridge = 'telnet ' + BRIDGE_NAME
 
-    #nname = node_name.rstrip('\n')
     cmd_telnet_node = 'telnet ' + node_name
     cmd_h = str.replace(cmd, ' ', '_')
-    file_name = node_name + '-' + my_time + '_' + cmd_h + '.txt'
-    fout = open(BASE_DIR + file_name, 'w')
+    site = SITE[:-1]
+    file_name = site + '_' + my_time + '_' + cmd_h + '.txt'
+
     lower_string_to_expect = node_name + '#'
 
     string_to_expect = str.upper(lower_string_to_expect)
@@ -55,11 +56,10 @@ def get_command_output(node_name, cmd):
 
     child.sendline(cmd)
 
-    child.logfile_read = fout
+    with open(BASE_DIR + file_name, 'a') as fout:
+        child.logfile_read = fout
+        child.expect(string_to_expect)
 
-    child.expect(string_to_expect)
-
-    fout.close()
     child.terminate()
 
     return file_name
@@ -67,6 +67,7 @@ def get_command_output(node_name, cmd):
 
 def from_range_to_list(range_str):
     ''' tansform '1-3' in [1,2,3] '''
+
     l = []
 
     h_l = range_str.split('-')
@@ -77,32 +78,41 @@ def from_range_to_list(range_str):
     return l
 
 
-def manage_OSW2OSW_allowed_list(ws, file_name):
+def get_indexes(text_list):
 
-    vlan_set = set()
-    OUTPUT_XLS = BASE_DIR + 'AID_to_{}_NMP.xls'.format(SITE[:-1])
+    bool_line_match = False
+    for line in text_list:
+        line = line.strip()
+        if line == 'Port          Vlans allowed on trunk' and bool_line_match == False:
+            first_index = text_list.index(line)
+            bool_line_match = True
+        elif line == 'Port          Vlans allowed on trunk' and bool_line_match == True:
+            second_index = text_list.index(line, text_list.index(line) + 1)
 
-    fin = open(BASE_DIR + file_name, 'r')
-    text = fin.readlines()
-    for line in text:
-        if 'Po1' in line:
-            line = line.strip()
-            line_list = line.split()
-            vlan_string = line_list[1]
-            vlan_list = vlan_string.split(',')
-            break
+    return (first_index, second_index)
 
-    for v in vlan_list:
 
-        if v.find('-') > 0:
-            help_l = from_range_to_list(v)
-            for elem in help_l:
-                vlan_set.add(int(elem))
-        else:
-            vlan_set.add(int(v))
+def manage_OSW2OSW_allowed_list(ws, path2file):
 
-    lst = list(vlan_set)
-    lst.sort()
+    lst = []
+
+    with open(path2file, 'r') as fin:
+        text = fin.read()
+    text_list = text.split('\n')
+    first, second = get_indexes(text_list)
+
+    for index in (first, second):
+        po, vlan_string = text_list[index + 1].split()
+        vlan_list = vlan_string.split(',')
+
+        for v in vlan_list:
+            if v.find('-') > 0:
+                help_l = from_range_to_list(v)
+                for elem in help_l:
+                    lst.append(int(elem))
+            else:
+                lst.append(int(v))
+
     mycol = 1
     max_row = len(lst) + 1
 
@@ -110,56 +120,81 @@ def manage_OSW2OSW_allowed_list(ws, file_name):
         ws.cell(row=myrow, column=mycol, value=int(elem))
 
 
-def manage_simple(ws, node, sheet, file):
+def manage_simple(ws, sheet, path2file):
 
-    #ws = wb.create_sheet(title=node + '_' + sheet)
-    fin = open(BASE_DIR + file, 'r')
-    myrow = 1
-    for line in fin:
-        line = line.strip()
-        line_list = line.split()
-        for elem, mycol in zip(line_list, range(1, len(line_list) + 1)):
-            ws.cell(row=myrow, column=mycol, value=elem)
-        myrow += 1
-
-
-def manage_show_vlan_brief(ws, file):
-
-    fin = open(BASE_DIR + file, 'r')
-    myrow = 1
-
-    for line in fin:
-        line_list = line.split()
-        if line_list[0][0].isnumeric() or line_list[0] == 'show':
+    with open(path2file, 'r') as fin:
+        myrow = 1
+        for line in fin:
+            line = line.strip()
+            line_list = line.split()
             for elem, mycol in zip(line_list, range(1, len(line_list) + 1)):
                 ws.cell(row=myrow, column=mycol, value=elem)
             myrow += 1
-        else:
-            continue
 
 
-def create_xlsx(node_list, file_list, sheet_list):
+def manage_show_vlan_brief(ws, path2file):
 
-    OUTPUT_XLS = BASE_DIR + 'AID_to_{}_NMP.xlsx'.format(SITE[:-1])
-    wb = Workbook()
-    for node in node_list:
+    with open(path2file, 'r') as fin:
+        myrow = 1
 
-        for sheet, cmd in zip(sheet_list, command_list):
-            #ws = wb.create_sheet(title=node + '_' + sheet)
-            cmd_split = cmd.split()
-            cmd_h = str.replace(cmd, ' ', '_')
-            time = file_list[0].split('-')[1].split('_')[0]
-            file = node + '-' + time + '_' + cmd_h + '.txt'
-
-            if 'trunk' in cmd_split:
-                ws = wb.create_sheet(title=node + '_' + sheet)
-                manage_OSW2OSW_allowed_list(ws, file)
-            elif 'vlan' in cmd_split and 'brief' in cmd_split:
-                ws = wb.create_sheet(title=node + '_' + sheet)
-                manage_show_vlan_brief(ws, file)
+        for line in fin:
+            if len(line) > 1:
+                if line[:4] != 'VLAN' and line[:4] != '----' and line[:4] != 'show':
+                    line_list = line.split()
+                    if line_list[0][0].isnumeric() or line_list[0] == 'show':
+                        for elem, mycol in zip(line_list, range(1, len(line_list) + 1)):
+                            ws.cell(row=myrow, column=mycol, value=elem)
+                        myrow += 1
+                    else:
+                        continue
+                else:
+                    continue
             else:
-                ws = wb.create_sheet(title=node + '_' + sheet)
-                manage_simple(ws, node, sheet, file)
+                continue
+
+
+def get_indexes(text_list):
+
+    bool_line_match = False
+    for line in text_list:
+        line = line.strip()
+        if line == 'Port          Vlans allowed on trunk' and bool_line_match == False:
+            first_index = text_list.index(line)
+            bool_line_match = True
+        elif line == 'Port          Vlans allowed on trunk' and bool_line_match == True:
+            second_index = text_list.index(line, text_list.index(line) + 1)
+
+    return (first_index, second_index)
+
+
+def get_sheet_from_filename(path):
+    ''' Creates {file_name: undescored_cmd} '''
+
+    map_file_2_sheet = {}
+    for elem in os.scandir(path):
+        name = elem.name
+        if elem.is_file() and elem.name[:3] != 'AID':
+            result = elem.name.split('_')[2:]
+            cmd = '_'.join(result)[:-4]  # get rid of '.txt'
+            map_file_2_sheet[elem.name] = cmd
+    return map_file_2_sheet
+
+
+def create_xlsx(path, site):
+
+    OUTPUT_XLS = path + 'AID_to_{}_NMP.xlsx'.format(site)
+    wb = Workbook()
+    map_file_2_sheet = get_sheet_from_filename(path)
+
+    for file, sheet in zip(map_file_2_sheet.keys(), map_file_2_sheet.values()):
+        ws = wb.create_sheet(title=sheet, index=0)
+        cmd_list = sheet.split('_')
+        if 'trunk' in cmd_list:
+            manage_OSW2OSW_allowed_list(ws, path + file)
+        elif 'vlan' in cmd_list and 'brief' in cmd_list:
+            manage_show_vlan_brief(ws, path + file)
+        else:
+            manage_simple(ws, sheet, path + file)
 
     wb.save(filename=OUTPUT_XLS)
 
@@ -168,54 +203,35 @@ def create_xlsx(node_list, file_list, sheet_list):
 #############################################
 
 
+PO = 'po1'
 BASE = '/mnt/hgfs/VM_shared/VF-2017/NMP/'
 SITE = 'BO01/'
-SWITCH_1 = 'BOOSW013'
-SWITCH_2 = 'BOOSW016'
-BASE_DIR = BASE + SITE + 'AID/'
+BASE_DIR = BASE + SITE + 'AID_2/'
 BRIDGE_NAME = '10.192.10.8'
 MyUsername = 'zzasp70'
 MyBridgePwd = "SP9400ra"
 MyTacacsPwd = "0094SPra_"
 command_list = ['show interfaces description',
-                'show vlan brief | i [1-9]',
+                'show vlan brief',
                 'show standby brief',
                 'show vrrp brief',
-                'show interfaces trunk | begin Vlans allowed on trunk']
-sheet_list = ['show_int_desc',
-              'show_vlan_brief',
-              'show_stdby_brief',
-              'show_vrrp_brief',
-              'show_int_trunk']
+                'show interfaces {} trunk'.format(PO)]
 
 node_list = ['BOOSW013',
              'BOOSW016']
 
-# DEVICES = 'devices.txt'
-# OUTFILE = 'results.txt'
 
 ############################################
 ################# MAIN #####################
 ############################################
 
-file_list = [
-    'BOOSW013-9112017_show_interfaces_trunk_|_begin_Vlans_allowed_on_trunk.txt',
-    'BOOSW013-9112017_show_interfaces_description.txt',
-    'BOOSW013-9112017_show_standby_brief.txt',
-    'BOOSW013-9112017_show_vlan_brief_|_i_[1-9].txt',
-    'BOOSW013-9112017_show_vrrp_brief.txt',
-    'BOOSW016-9112017_show_interfaces_description.txt',
-    'BOOSW016-9112017_show_standby_brief.txt',
-    'BOOSW016-9112017_show_vlan_brief_|_i_[1-9].txt',
-    'BOOSW016-9112017_show_vrrp_brief.txt',
-    'BOSW016-9112017_show_interfaces_trunk_|_begin_Vlans_allowed_on_trunk.txt', ]
 
 my_time = time_string()
 
+file_list = []
+for cmd in command_list:
+    for node in node_list:
+        file_list.append(get_command_output(node, cmd))
 
-# for node in node_list:
-#     for cmd in command_list:
-#         file_list.append(get_command_output(node, cmd))
 
-create_xlsx(node_list, file_list, sheet_list)
-# elaborate_on_files()
+create_xlsx(BASE_DIR, SITE[:-1])
