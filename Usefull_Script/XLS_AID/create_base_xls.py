@@ -6,7 +6,7 @@
 import os
 import pexpect
 import time
-from openpyxl import load_workbook
+# from openpyxl import load_workbook
 from openpyxl.workbook import Workbook
 
 
@@ -23,7 +23,7 @@ def time_string():
 
 
 def get_command_output(node_name, cmd):
-    ''' This function read devices names from file, 
+    ''' This function read devices names from file,
      connects to them and write on file output of a file '''
 
     cmd_telnet_bridge = 'telnet ' + BRIDGE_NAME
@@ -68,14 +68,14 @@ def get_command_output(node_name, cmd):
 def from_range_to_list(range_str):
     ''' tansform '1-3' in [1,2,3] '''
 
-    l = []
+    mylist = []
 
     h_l = range_str.split('-')
     start = int(h_l[0])
     stop = int(h_l[1])
     for x in range(start, stop + 1):
-        l.append(x)
-    return l
+        mylist.append(x)
+    return mylist
 
 
 def get_indexes(text_list):
@@ -83,10 +83,10 @@ def get_indexes(text_list):
     bool_line_match = False
     for line in text_list:
         line = line.strip()
-        if line == 'Port          Vlans allowed on trunk' and bool_line_match == False:
+        if line == 'Port          Vlans allowed on trunk' and bool_line_match is False:
             first_index = text_list.index(line)
             bool_line_match = True
-        elif line == 'Port          Vlans allowed on trunk' and bool_line_match == True:
+        elif line == 'Port          Vlans allowed on trunk' and bool_line_match is True:
             second_index = text_list.index(line, text_list.index(line) + 1)
 
     return (first_index, second_index)
@@ -102,7 +102,8 @@ def manage_OSW2OSW_allowed_list(ws, path2file):
     first, second = get_indexes(text_list)
 
     for index in (first, second):
-        po, vlan_string = text_list[index + 1].split()
+        # next line _ is po
+        _, vlan_string = text_list[index + 1].split()
         vlan_list = vlan_string.split(',')
 
         for v in vlan_list:
@@ -120,7 +121,7 @@ def manage_OSW2OSW_allowed_list(ws, path2file):
         ws.cell(row=myrow, column=mycol, value=int(elem))
 
 
-def manage_simple(ws, sheet, path2file):
+def manage_simple(ws, path2file):
 
     with open(path2file, 'r') as fin:
         myrow = 1
@@ -153,26 +154,12 @@ def manage_show_vlan_brief(ws, path2file):
                 continue
 
 
-def get_indexes(text_list):
-
-    bool_line_match = False
-    for line in text_list:
-        line = line.strip()
-        if line == 'Port          Vlans allowed on trunk' and bool_line_match == False:
-            first_index = text_list.index(line)
-            bool_line_match = True
-        elif line == 'Port          Vlans allowed on trunk' and bool_line_match == True:
-            second_index = text_list.index(line, text_list.index(line) + 1)
-
-    return (first_index, second_index)
-
-
 def get_sheet_from_filename(path):
     ''' Creates {file_name: undescored_cmd} '''
 
     map_file_2_sheet = {}
     for elem in os.scandir(path):
-        name = elem.name
+        #name = elem.name
         if elem.is_file() and elem.name[:3] != 'AID':
             result = elem.name.split('_')[2:]
             cmd = '_'.join(result)[:-4]  # get rid of '.txt'
@@ -194,7 +181,7 @@ def create_xlsx(path, site):
         elif 'vlan' in cmd_list and 'brief' in cmd_list:
             manage_show_vlan_brief(ws, path + file)
         else:
-            manage_simple(ws, sheet, path + file)
+            manage_simple(ws, path + file)
 
     wb.save(filename=OUTPUT_XLS)
 
