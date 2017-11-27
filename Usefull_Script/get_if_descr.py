@@ -52,7 +52,7 @@ def get_command_output():
 
         string_to_expect = str.upper(lower_string_to_expect)
 
-        child = pexpect.spawnu(cmd_telnet_bridge)
+        child = pexpect.spawn(cmd_telnet_bridge, encoding='utf-8')
 
         child.expect('login: ')
         child.sendline(MyUsername)
