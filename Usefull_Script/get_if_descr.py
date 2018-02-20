@@ -108,12 +108,12 @@ def elaborate_on_files():
 #############################################
 
 
-BASE_DIR = '/Users/aspera/py3/descr/'
+BASE_DIR = '/mnt/hgfs/VM_shared/Scripts/FORMAL_L2VPN/'
 BRIDGE_NAME = '10.192.10.8'
 MyUsername = 'zzasp70'
-MyBridgePwd = 'spRA0094'
-MyTacacsPwd = '0094SPra'
-CMD = 'show interfaces description'
+MyBridgePwd = "SPra0094"
+MyTacacsPwd = "0094SPra_"
+CMD = 'show run formal l2vpn'
 DEVICES = 'devices.txt'
 OUTFILE = 'results.txt'
 
